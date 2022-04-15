@@ -50,7 +50,7 @@ DBG = $(SRC:.c=.exe.dSYM)
 .c.exe: $(ASYNC_DIR)/$(DYNLIB) $(ASYNC_DIR)/$(STATLIB)
 	$(CC) $(CFLAGS) $^ -o $*.exe $(LDFLAGS)
 
-all: $(EXE)
+all: $(OBJ)
 
 check: 
 	python3 ./pytest.py -p
