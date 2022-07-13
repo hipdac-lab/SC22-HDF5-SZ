@@ -22,8 +22,10 @@ Some configuration parameters used in the instructions:
 ## Step 2: Installation
 
 2.1 Compile SZ.
+
     > cd $SZ_DIR
-    > ./configure --prefix=[INSTALL_DIR] (Please use --enable-fortran if you need Fortran interface)
+    > mkdir install
+    > ./configure --prefix=[CURRENT_DIR]/install (Please use --enable-fortran if you need Fortran interface)
     > make
     > make install
 
@@ -79,19 +81,10 @@ This will download a 2.7 GB Nyx cosmology dataset with a dimension of 512x512x51
     > # Update H5_DIR, ABT_DIR and ASYNC_DIR to the correct paths of their installation directory
     > make
     
-Run the compression ratio estimation test:
-
-    > comp_ratio temperature.dat
-
-This will estimate the compression time with different error bound and compare it with the actual compression time.
-
-<img width="269" alt="截屏2022-04-15 下午3 35 01" src="https://user-images.githubusercontent.com/50967682/163629594-34281d78-9bcb-48ad-bc18-f42ad3d9930b.png">
-
 Run the overall performance test, note you may need to edit the command for mpirun in with the corresponding MPI launch command.:
 
-    > jsrun -n 512 overall_test
+    > jsrun -n16 overall_test.exe
 
-This will distribute the data onto 512 processors wich each processor hold a data partition size of 64x64x64 on 6 data fields. Then it will write these data to a shared HDF5 file with 4 solutions and compare the write performance: (1) write original data; (2) write compressed data with SZ lossy compression filter; (3) write compressed data and overlap compression with I/O; and (4) overlapping with compression schedule optimization.
+This will distribute the data onto 16 processors wich each processor hold a data partition size of 64x64x64 on 6 data fields. Then it will write these data to a shared HDF5 file with 3 solutions and compare the write performance: (1) write original data; (2) write compressed data with SZ lossy compression filter; (3) write compressed data and overlap compression with I/O + compression schedule optimization.
 
-<img width="269" alt="截屏2022-04-15 下午3 35 48" src="https://user-images.githubusercontent.com/50967682/163629647-ccfff9cc-0a21-43eb-9af5-6b696c19ea1a.png">
-
+<img width="181" alt="截屏2022-07-13 上午6 57 02" src="https://user-images.githubusercontent.com/50967682/178728197-5ea29eca-17cc-4738-a796-db6ca82567a9.png">
