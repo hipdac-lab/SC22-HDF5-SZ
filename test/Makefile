@@ -29,7 +29,7 @@ ABT_LIBDIR =  $(shell if [ -d $$ABT_DIR/lib ]; then echo "lib"; else echo "lib64
 
 # These lines may need to be adjusted for your compiler environment:
 DEBUG = -g -O0 -Wall
-CFLAGS = $(DEBUG) -I$(ABT_DIR)/include -I$(ASYNC_DIR) -I$(HDF5_DIR)/include -I$(SZ_DIR)/include
+CFLAGS = $(DEBUG) -I$(ABT_DIR)/include -I$(ASYNC_DIR) -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -lm
 
 # Uncomment this line Linux builds:
 LDFLAGS = $(DEBUG) -L$(ASYNC_DIR) -L$(ABT_DIR)/lib -L$(HDF5_DIR)/lib -L$(SZ_DIR)/lib -Wl,-rpath=$(ASYNC_DIR) -Wl,-rpath=$(ABT_DIR)/lib -Wl,-rpath=$(HDF5_DIR)/lib -Wl,-rpath=$(SZ_DIR)/lib -labt -lhdf5 -lh5async -lasynchdf5 -lSZ -lzlib -lzstd
@@ -56,7 +56,7 @@ DBG = $(SRC:.c=.exe.dSYM)
 .c.exe: $(ASYNC_DIR)/$(DYNLIB) $(ASYNC_DIR)/$(STATLIB)
 	$(CC) $(CFLAGS) $^ -o $*.exe $(LDFLAGS)
 
-all: $(OBJ)
+all: $(EXE)
 
 check: 
 	python3 ./pytest.py -p

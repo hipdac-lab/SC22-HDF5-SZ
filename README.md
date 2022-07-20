@@ -1,90 +1,137 @@
-# HDF5 With SZ Lossy Compression
+# Artifacts of SC’22 paper “Accelerating Parallel Write via Deeply Integrating Predictive Lossy Compression with HDF5”
 
-Some configuration parameters used in the instructions:
+This demo has been successfully run on multiple systems including OLCF Summit supercomputer, ANL Bebop cluster, WSU Kamiak cluster, and Chameleon Cloud.
 
-        VOL_DIR : directory of HDF5-SZ repository
-        ABT_DIR : directory of Argobots source code
-        H5_DIR  : directory of HDF5 source code
-        SZ_DIR  : directory of SZ source code
-        
-## Step 1: Preparation
+## Environment
 
-1.1 Download the code of this repository with Argobots git submodule.
+- OS: CentOS (>= 7.8)
+- Compiler: GCC (>=4.8.5)
+- MPI: GCC built OpenMPI (>=4.1.1) or MPICH (>=3.3.1)
 
-    > git clone https://github.com/jinsian/HDF5-SZ
-    > git clone https://github.com/pmodels/argobots
-    > git clone https://github.com/szcompressor/SZ
+   * For users in HPC systems (such as Summit), please try “module load openmpi” to load the MPI library. 
 
-1.2 Download the HDF5 source code, you can skip this step if you have HDF5 module avalible.
+   * For users in Chameleon Cloud, please follow [this instruction](https://chameleoncloud.readthedocs.io/en/latest/getting-started/index.html) to create an instance using ANL-MPICH image.
 
-    > git clone https://github.com/HDFGroup/hdf5.git
+- Other dependencies: parallel HDF5, Argobots, and SZ (please follow Step 1 and 2 to build them).
 
-## Step 2: Installation
+## Step 1: Download Dependencies
 
-2.1 Compile SZ.
+### 1.1 Setup test directory
 
-    > cd $SZ_DIR
-    > mkdir install
-    > ./configure --prefix=[CURRENT_DIR]/install (Please use --enable-fortran if you need Fortran interface)
-    > make
-    > make install
+```
+export TEST_HOME=$(pwd)
+```
 
-2.2 Compile HDF5, you can skip this step if you have HDF5 module avalible.
+### 1.2 Download code of HDF5, Argobots, SZ, and our HDF5-SZ
 
-    > cd $H5_DIR
-    > ./autogen.sh  (may skip this step if the configure file exists)
-    > ./configure --prefix=$H5_DIR/install --enable-parallel --enable-threadsafe --enable-unsupported #(may need to add CC=cc or CC=mpicc)
-    > make && make install
-
-2.3 Compile Argobots.
-
-    > cd $ABT_DIR
-    > ./autogen.sh  (may skip this step if the configure file exists)
-    > ./configure --prefix=$ABT_DIR/install #(may need to add CC=cc or CC=mpicc)
-    > make && make install
-    # Note: using mpixlC on Summit will result in Argobots runtime error, use xlC or gcc instead.
-
-2.4 Compile Asynchronous VOL connector with SZ lossy compression implimentations.
-
-    > cd $VOL_DIR/src
-    > # Edit "Makefile"
-    > # Use a template Makefile: e.g. "cp Makefile.summit Makefile"
-    > # Change the path of HDF5_DIR and ABT_DIR to $H5_DIR/install and $ABT_DIR/install
-    > # (Optional) update the compiler flag macros: DEBUG, CFLAGS, LIBS, ARFLAGS
-    > # (Optional) comment/uncomment the correct DYNLDFLAGS & DYNLIB macros
-    > make
-
-## Step 3: Set Environment Variables
-
-Set the following environmental variable before running the tests:
-
-    > export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SZ_DIR/install/lib
-    > export LD_LIBRARY_PATH=$VOL_DIR/src:$H5_DIR/install/lib:$ABT_DIR/install/lib:$LD_LIBRARY_PATH
-    > export HDF5_PLUGIN_PATH="$VOL_DIR/src"
-    > export HDF5_VOL_CONNECTOR="async under_vol=0;under_info={}" 
-    > (optional) export MPICH_MAX_THREAD_SAFETY=multiple # Some systems like Cori@NERSC need this to support MPI_THREAD_MULTIPLE
+```
+cd $TEST_HOME
+git clone https://github.com/HDFGroup/hdf5
+git clone https://github.com/pmodels/argobots
+git clone https://github.com/szcompressor/SZ
+git clone https://github.com/jinsian/HDF5-SZ
+```
     
-## Step 5. Download Test Dataset
+### 1.3 Configure home directory of each software
 
-You can download the test dataset from SDRBench with the following command:
+```
+export ABT_HOME=$TEST_HOME/argobots
+export H5_HOME=$TEST_HOME/hdf5
+export SZ_HOME=$TEST_HOME/SZ
+export VOL_HOME=$TEST_HOME/HDF5-SZ
+```
 
-    > cd $VOL_DIR/test
-    > wget https://g-8d6b0.fd635.8443.data.globus.org/ds131.2/Data-Reduction-Repo/raw-data/EXASKY/NYX/SDRBENCH-EXASKY-NYX-512x512x512.tar.gz
-    > tar -zxvf SDRBENCH-EXASKY-NYX-512x512x512.tar.gz
+## Step 2: Build Dependencies
 
-This will download a 2.7 GB Nyx cosmology dataset with a dimension of 512x512x512.
+### 2.1 Build parallel HDF5
 
-## Step 4. Tests
-
-    > cd $VOL_DIR/test
-    > # Edit "Makefile":
-    > # Update H5_DIR, ABT_DIR and ASYNC_DIR to the correct paths of their installation directory
-    > make
+```   
+cd $H5_HOME
+./autogen.sh
+mkdir install
+./configure --prefix=$H5_HOME/install --enable-parallel --enable-threadsafe --enable-unsupported
+make -j8
+make install
+```
     
-Run the overall performance test, note you may need to edit the command for mpirun in with the corresponding MPI launch command.:
+Please use the below command to double check if the installed HDF5 supports parallel mode.
 
-    > jsrun -n16 overall_test.exe
+```
+$H5_HOME/install/bin/h5pcc -showconfig
+```
 
-This will distribute the data onto 16 processors wich each processor hold a data partition size of 64x64x64 on 6 data fields. Then it will write these data to a shared HDF5 file with 3 solutions and compare the write performance: (1) write original data; (2) write compressed data with SZ lossy compression filter; (3) write compressed data and overlap compression with I/O + compression schedule optimization.
+You should find *Parallel HDF5: yes*.
 
-<img width="181" alt="截屏2022-07-13 上午6 57 02" src="https://user-images.githubusercontent.com/50967682/178728197-5ea29eca-17cc-4738-a796-db6ca82567a9.png">
+### 2.2 Build Argobots
+
+```
+cd $ABT_HOME
+./autogen.sh
+mkdir install
+./configure --prefix=$ABT_HOME/install
+make -j8
+make install
+```
+
+### 2.3 Build SZ
+
+```
+cd $SZ_HOME
+mkdir install
+./configure --prefix=$SZ_HOME/install
+make -j8
+make install
+```
+
+### 2.4 Build asynchronous VOL connector with SZ
+
+```    
+cd $VOL_HOME/src
+export HDF5_DIR=$H5_HOME/install
+export ABT_DIR=$ABT_HOME/install
+make
+```
+
+## Step 3: Build HDF5-SZ Demo
+
+### 3.1 Set environment variables
+
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SZ_HOME/install/lib
+export LD_LIBRARY_PATH=$VOL_HOME/src:$H5_HOME/install/lib:$ABT_HOME/install/lib:$LD_LIBRARY_PATH
+export HDF5_PLUGIN_PATH="$VOL_HOME/src"
+export HDF5_VOL_CONNECTOR="async under_vol=0;under_info={}"
+```
+
+### 3.2 Compile HDF5-SZ demo code
+
+```
+cd $VOL_HOME/test
+export H5_DIR=$HDF5_DIR
+export ASYNC_DIR=$VOL_HOME/src
+make
+```
+    
+## Step 4. Test HDF5-SZ Demo
+
+### 4.1 Download dataset
+
+You can download the test dataset (i.e., a 2.7 GB Nyx cosmology dataset with a dimension of 512x512x512) from SDRBench with the following command.
+
+```
+cd $VOL_HOME/test
+wget https://g-8d6b0.fd635.8443.data.globus.org/ds131.2/Data-Reduction-Repo/raw-data/EXASKY/NYX/SDRBENCH-EXASKY-NYX-512x512x512.tar.gz
+tar -zxvf SDRBENCH-EXASKY-NYX-512x512x512.tar.gz
+```
+
+### 4.2 Run test
+
+Run the overall performance test. Note that you may need to change the execution command from mpirun to the corresponding MPI launch command in your system. If you are using the MPICH on Chameleon, please change *mpirun* to *mpiexec*.
+
+```
+mpirun -n 16 overall_test.exe
+```
+
+This demo code is to first distribute the example data to 16 processors where each holds a partition of 6 64x64x64 data fields and then write these data to a shared HDF5 file using three different solutions (with different write performances): (1) write original data, (2) write compressed data with SZ lossy compression filter, and (3) write compressed data and overlap compression with I/O + compression schedule optimization.
+
+<img width="300" alt="example result" src="https://user-images.githubusercontent.com/50967682/178728197-5ea29eca-17cc-4738-a796-db6ca82567a9.png">
